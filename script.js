@@ -9,27 +9,41 @@ const searchInput = document.getElementById("searchInput");
 let treeData = [];
 
 async function loadFiles() {
-  try {
-    fileList.innerHTML = `<div class="status">Cargando archivos...</div>`;
+  showStatus("Cargando archivos...");
 
-    const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/git/trees/${BRANCH}?recursive=1`;
-    const response = await fetch(apiUrl);
+  try {
+    const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/git/trees/${encodeURIComponent(BRANCH)}?recursive=1`;
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.github+json"
+      }
+    });
 
     if (!response.ok) {
-      throw new Error("No se pudo cargar el árbol del repositorio");
+      throw new Error(`GitHub API respondio con ${response.status}`);
     }
 
     const data = await response.json();
+    const rootItem = data.tree.find((item) => item.path === ROOT_FOLDER);
+    const publicationItems = data.tree.filter((item) =>
+      item.path.startsWith(`${ROOT_FOLDER}/`)
+    );
 
-    treeData = buildTree(data.tree);
+    if (!rootItem && publicationItems.length === 0) {
+      throw new Error(`No existe la carpeta ${ROOT_FOLDER}`);
+    }
+
+    treeData = buildTree(publicationItems);
     renderTree(treeData);
-
   } catch (error) {
+    console.error(error);
+
     fileList.innerHTML = `
       <div class="empty">
-        No se pudieron cargar los archivos. Comprueba que el repositorio sea público,
-        que la rama sea <strong>${BRANCH}</strong> y que exista la carpeta 
-        <strong>${ROOT_FOLDER}</strong>.
+        No se pudieron cargar las publicaciones. Comprueba que el repositorio
+        <strong>${escapeHtml(`${GITHUB_USER}/${GITHUB_REPO}`)}</strong> sea publico,
+        que la rama sea <strong>${escapeHtml(BRANCH)}</strong> y que exista la carpeta
+        <strong>${escapeHtml(ROOT_FOLDER)}</strong>.
       </div>
     `;
   }
@@ -37,49 +51,51 @@ async function loadFiles() {
 
 function buildTree(items) {
   const root = [];
+  const folders = new Map();
 
-  const filteredItems = items.filter(item =>
-    item.path === ROOT_FOLDER || item.path.startsWith(`${ROOT_FOLDER}/`)
-  );
+  for (const item of items) {
+    const relativePath = item.path.slice(ROOT_FOLDER.length + 1);
+    const parts = relativePath.split("/").filter(Boolean);
 
-  for (const item of filteredItems) {
-    if (item.path === ROOT_FOLDER) continue;
-
-    const relativePath = item.path.replace(`${ROOT_FOLDER}/`, "");
-    const parts = relativePath.split("/");
+    if (parts.length === 0) continue;
 
     let currentLevel = root;
+    let currentPath = ROOT_FOLDER;
 
-    parts.forEach((part, index) => {
+    for (let index = 0; index < parts.length; index += 1) {
+      const name = parts[index];
       const isLast = index === parts.length - 1;
+      currentPath = `${currentPath}/${name}`;
 
       if (isLast && item.type === "blob") {
-        currentLevel.push({
-          type: "file",
-          name: part,
-          path: item.path,
-          size: item.size || 0,
-          downloadUrl: `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${BRANCH}/${encodeURI(item.path)}`
-        });
-      } else {
-        let folder = currentLevel.find(
-          entry => entry.type === "folder" && entry.name === part
-        );
-
-        if (!folder) {
-          folder = {
-            type: "folder",
-            name: part,
-            path: parts.slice(0, index + 1).join("/"),
-            children: []
-          };
-
-          currentLevel.push(folder);
+        if (!currentLevel.some((entry) => entry.path === item.path)) {
+          currentLevel.push({
+            type: "file",
+            name,
+            path: item.path,
+            url: encodePath(item.path),
+            size: item.size || 0
+          });
         }
-
-        currentLevel = folder.children;
+        continue;
       }
-    });
+
+      let folder = folders.get(currentPath);
+
+      if (!folder) {
+        folder = {
+          type: "folder",
+          name,
+          path: currentPath,
+          children: []
+        };
+
+        folders.set(currentPath, folder);
+        currentLevel.push(folder);
+      }
+
+      currentLevel = folder.children;
+    }
   }
 
   sortTree(root);
@@ -106,16 +122,20 @@ function sortTree(items) {
 }
 
 function renderTree(data, query = "") {
-  const normalizedQuery = query.toLowerCase().trim();
+  const normalizedQuery = normalize(query);
   const html = renderItems(data, normalizedQuery, 0);
-
+  const summary = summarizeTree(data);
   const searchStatus = normalizedQuery
     ? `<div class="search-status">Buscando: <strong>${escapeHtml(query)}</strong></div>`
     : "";
 
   fileList.innerHTML = `
+    <div class="summary">
+      ${summary.files} archivo${summary.files === 1 ? "" : "s"} en
+      ${summary.folders} carpeta${summary.folders === 1 ? "" : "s"}
+    </div>
     ${searchStatus}
-    ${html || `<div class="empty">No se encontraron archivos.</div>`}
+    ${html || `<div class="empty">No se encontraron publicaciones.</div>`}
   `;
 }
 
@@ -125,21 +145,24 @@ function renderItems(items, query = "", level = 0) {
   for (const item of items) {
     if (item.type === "folder") {
       const folderContent = renderItems(item.children, query, level + 1);
-      const folderMatches = item.name.toLowerCase().includes(query);
+      const folderMatches = matchesQuery(item, query);
 
-      if (query && !folderMatches && !folderContent) {
-        continue;
-      }
+      if (query && !folderMatches && !folderContent) continue;
+
+      const summary = summarizeTree(item.children);
 
       html += `
-        <section class="folder" style="margin-left: ${level * 18}px">
+        <section class="folder" style="--level: ${level}">
           <details open>
             <summary>
-              <span class="folder-icon">📁</span>
-              <span>${escapeHtml(item.name)}</span>
+              <span class="item-icon" aria-hidden="true">DIR</span>
+              <span class="item-title">${escapeHtml(item.name)}</span>
+              <span class="folder-meta">
+                ${summary.files} archivo${summary.files === 1 ? "" : "s"}
+              </span>
             </summary>
             <div class="folder-content">
-              ${folderContent}
+              ${folderContent || `<div class="empty nested">Carpeta vacia</div>`}
             </div>
           </details>
         </section>
@@ -147,27 +170,27 @@ function renderItems(items, query = "", level = 0) {
     }
 
     if (item.type === "file") {
-      const fileMatches = item.name.toLowerCase().includes(query);
-
-      if (query && !fileMatches) {
-        continue;
-      }
+      if (query && !matchesQuery(item, query)) continue;
 
       const extension = getExtension(item.name);
 
       html += `
-        <article class="file-card" style="margin-left: ${level * 18}px">
+        <article class="file-card" style="--level: ${level}">
           <div class="file-info">
             <div class="file-name">
-              ${getIcon(extension)} ${escapeHtml(item.name)}
+              <span class="item-icon" aria-hidden="true">${getIcon(extension)}</span>
+              <span>${escapeHtml(item.name)}</span>
             </div>
             <div class="file-meta">
-              ${extension.toUpperCase()} · ${formatBytes(item.size)}
+              ${escapeHtml(extension.toUpperCase())} · ${formatBytes(item.size)}
             </div>
           </div>
 
           <div class="file-actions">
-            <a href="${item.downloadUrl}" target="_blank" rel="noopener">
+            <a href="${item.url}" target="_blank" rel="noopener">
+              Abrir
+            </a>
+            <a href="${item.url}" download>
               Descargar
             </a>
           </div>
@@ -179,11 +202,47 @@ function renderItems(items, query = "", level = 0) {
   return html;
 }
 
+function summarizeTree(items) {
+  return items.reduce(
+    (summary, item) => {
+      if (item.type === "file") {
+        summary.files += 1;
+      }
+
+      if (item.type === "folder") {
+        const childSummary = summarizeTree(item.children);
+        summary.folders += 1 + childSummary.folders;
+        summary.files += childSummary.files;
+      }
+
+      return summary;
+    },
+    { files: 0, folders: 0 }
+  );
+}
+
+function matchesQuery(item, query) {
+  if (!query) return true;
+
+  return normalize(item.name).includes(query) || normalize(item.path).includes(query);
+}
+
+function normalize(value) {
+  return value.toLowerCase().trim();
+}
+
+function encodePath(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return "0 B";
 
   const units = ["B", "KB", "MB", "GB"];
-  const index = Math.floor(Math.log(bytes) / Math.log(1024));
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
 
   return `${(bytes / Math.pow(1024, index)).toFixed(2)} ${units[index]}`;
 }
@@ -195,27 +254,27 @@ function getExtension(filename) {
 
 function getIcon(extension) {
   const icons = {
-    pdf: "📄",
-    doc: "📝",
-    docx: "📝",
-    xls: "📊",
-    xlsx: "📊",
-    csv: "📊",
-    zip: "🗜️",
-    rar: "🗜️",
-    "7z": "🗜️",
-    png: "🖼️",
-    jpg: "🖼️",
-    jpeg: "🖼️",
-    webp: "🖼️",
-    gif: "🖼️",
-    txt: "📃",
-    md: "📃",
-    ppt: "📽️",
-    pptx: "📽️"
+    pdf: "PDF",
+    doc: "DOC",
+    docx: "DOC",
+    xls: "XLS",
+    xlsx: "XLS",
+    csv: "CSV",
+    zip: "ZIP",
+    rar: "RAR",
+    "7z": "7Z",
+    png: "IMG",
+    jpg: "IMG",
+    jpeg: "IMG",
+    webp: "IMG",
+    gif: "IMG",
+    txt: "TXT",
+    md: "MD",
+    ppt: "PPT",
+    pptx: "PPT"
   };
 
-  return icons[extension] || "📁";
+  return icons[extension] || "FILE";
 }
 
 function escapeHtml(text) {
@@ -224,12 +283,12 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function showStatus(message) {
+  fileList.innerHTML = `<div class="status">${escapeHtml(message)}</div>`;
+}
+
 searchInput.addEventListener("input", () => {
-  const query = searchInput.value.trim();
-
-  if (!treeData) return;
-
-  renderTree(treeData, query);
+  renderTree(treeData, searchInput.value);
 });
 
 loadFiles();

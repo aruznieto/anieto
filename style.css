@@ -1,35 +1,114 @@
-.search-status {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
-  padding: 12px 16px;
-  border-radius: 12px;
-  margin-bottom: 18px;
-  font-size: 0.95rem;
+* {
+  box-sizing: border-box;
 }
 
-.status {
-  background: white;
-  padding: 18px;
-  border-radius: 12px;
-  color: #4b5563;
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #172033;
+  background: #f4f7f9;
+}
+
+main {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0;
+}
+
+header {
+  margin-bottom: 24px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.05;
+}
+
+p {
+  margin: 0;
+  color: #5d6678;
+}
+
+.toolbar {
+  margin-bottom: 18px;
+}
+
+#searchInput {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 14px;
+  font: inherit;
+  color: #172033;
+  background: #ffffff;
+}
+
+#searchInput:focus {
+  border-color: #2563eb;
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+}
+
+.file-list {
+  display: grid;
+  gap: 12px;
+}
+
+.summary,
+.search-status,
+.status,
+.empty {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.summary {
+  color: #334155;
+  font-weight: 700;
+}
+
+.search-status {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.status,
+.empty {
+  color: #64748b;
+}
+
+.empty.nested {
+  margin-left: calc((var(--level, 0) + 1) * 18px);
+  padding: 12px 14px;
+}
+
+.folder,
+.file-card {
+  margin-left: calc(var(--level, 0) * 18px);
 }
 
 .folder {
-  margin-bottom: 12px;
+  display: grid;
+  gap: 10px;
 }
 
 .folder summary {
+  min-height: 48px;
   cursor: pointer;
-  background: #e5e7eb;
-  padding: 14px 16px;
-  border-radius: 12px;
+  background: #e8edf3;
+  border: 1px solid #d7dee8;
+  padding: 12px 14px;
+  border-radius: 8px;
   font-weight: 700;
-  color: #111827;
+  color: #172033;
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .folder summary::-webkit-details-marker {
@@ -37,29 +116,133 @@
 }
 
 .folder summary:hover {
-  background: #d1d5db;
+  background: #dde5ee;
+}
+
+.item-icon {
+  flex: 0 0 auto;
+  min-width: 34px;
+  border-radius: 6px;
+  padding: 3px 5px;
+  color: #1e3a8a;
+  background: #dbeafe;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.item-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.folder-meta {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .folder-content {
-  margin-top: 10px;
   display: grid;
   gap: 10px;
+  margin-top: 10px;
 }
 
 .file-card {
-  background: white;
-  border-radius: 14px;
-  padding: 16px 18px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  min-height: 64px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.06);
 }
 
-.empty {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  color: #6b7280;
+.file-info {
+  min-width: 0;
+}
+
+.file-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.file-meta {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.file-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+}
+
+.file-actions a {
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #ffffff;
+  background: #2563eb;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.file-actions a:first-child {
+  color: #2563eb;
+  background: #ffffff;
+}
+
+.file-actions a:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+@media (max-width: 640px) {
+  main {
+    width: min(100% - 20px, 960px);
+    padding: 24px 0;
+  }
+
+  .folder,
+  .file-card {
+    margin-left: calc(var(--level, 0) * 10px);
+  }
+
+  .folder summary,
+  .file-card {
+    align-items: flex-start;
+  }
+
+  .file-card,
+  .file-actions {
+    flex-direction: column;
+  }
+
+  .file-actions,
+  .file-actions a {
+    width: 100%;
+  }
+
+  .file-actions a {
+    text-align: center;
+  }
+
+  .folder-meta {
+    display: none;
+  }
 }
