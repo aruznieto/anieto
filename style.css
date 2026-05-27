@@ -1,3 +1,20 @@
+.search-status {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  font-size: 0.95rem;
+}
+
+.status {
+  background: white;
+  padding: 18px;
+  border-radius: 12px;
+  color: #4b5563;
+}
+
 .folder {
   margin-bottom: 12px;
 }
@@ -10,6 +27,9 @@
   font-weight: 700;
   color: #111827;
   list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .folder summary::-webkit-details-marker {
@@ -35,4 +55,11 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.empty {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  color: #6b7280;
 }
