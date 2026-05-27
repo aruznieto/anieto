@@ -1,0 +1,100 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  color: #1f2937;
+}
+
+main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+header {
+  margin-bottom: 30px;
+}
+
+h1 {
+  font-size: 2.4rem;
+  margin-bottom: 8px;
+}
+
+p {
+  color: #4b5563;
+}
+
+.toolbar {
+  margin-bottom: 24px;
+}
+
+input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+.file-list {
+  display: grid;
+  gap: 14px;
+}
+
+.file-card {
+  background: white;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-info {
+  overflow: hidden;
+}
+
+.file-name {
+  font-weight: 700;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.file-meta {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.file-actions a {
+  display: inline-block;
+  text-decoration: none;
+  background: #111827;
+  color: white;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.file-actions a:hover {
+  background: #374151;
+}
+
+.empty {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  color: #6b7280;
+}
+
+@media (max-width: 600px) {
+  .file-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
