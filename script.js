@@ -7,6 +7,7 @@ const fileList = document.getElementById("fileList");
 const searchInput = document.getElementById("searchInput");
 
 let treeData = [];
+let currentPath = [];
 
 async function loadFiles() {
   showStatus("Cargando archivos...");
@@ -34,7 +35,7 @@ async function loadFiles() {
     }
 
     treeData = buildTree(publicationItems);
-    renderTree(treeData);
+    renderCurrentFolder();
   } catch (error) {
     console.error(error);
 
@@ -121,15 +122,54 @@ function sortTree(items) {
   }
 }
 
-function renderTree(data, query = "") {
+function renderCurrentFolder() {
+  renderFolder(getCurrentItems(), searchInput.value);
+}
+
+function getCurrentItems() {
+  let items = treeData;
+
+  for (const segment of currentPath) {
+    const folder = items.find(
+      (item) => item.type === "folder" && item.name === segment
+    );
+
+    if (!folder) {
+      currentPath = [];
+      return treeData;
+    }
+
+    items = folder.children;
+  }
+
+  return items;
+}
+
+function renderFolder(data, query = "") {
   const normalizedQuery = normalize(query);
-  const html = renderItems(data, normalizedQuery, 0);
+  const html = renderItems(data, normalizedQuery);
   const summary = summarizeTree(data);
+  const folderName = currentPath.length
+    ? currentPath[currentPath.length - 1]
+    : ROOT_FOLDER;
   const searchStatus = normalizedQuery
     ? `<div class="search-status">Buscando: <strong>${escapeHtml(query)}</strong></div>`
     : "";
+  const backButton = currentPath.length
+    ? `<button class="back-button" type="button" data-action="back">Volver</button>`
+    : "";
 
   fileList.innerHTML = `
+    <nav class="breadcrumbs" aria-label="Ruta actual">
+      ${renderBreadcrumbs()}
+    </nav>
+    <div class="folder-header">
+      <div>
+        <span class="eyebrow">Carpeta actual</span>
+        <h2>${escapeHtml(folderName)}</h2>
+      </div>
+      ${backButton}
+    </div>
     <div class="summary">
       ${summary.files} archivo${summary.files === 1 ? "" : "s"} en
       ${summary.folders} carpeta${summary.folders === 1 ? "" : "s"}
@@ -139,33 +179,47 @@ function renderTree(data, query = "") {
   `;
 }
 
-function renderItems(items, query = "", level = 0) {
+function renderBreadcrumbs() {
+  const crumbs = [ROOT_FOLDER, ...currentPath];
+
+  return crumbs
+    .map((crumb, index) => {
+      const isLast = index === crumbs.length - 1;
+      const path = index === 0 ? "" : currentPath.slice(0, index).join("/");
+
+      if (isLast) {
+        return `<span aria-current="page">${escapeHtml(crumb)}</span>`;
+      }
+
+      return `
+        <button type="button" data-action="breadcrumb" data-path="${escapeHtml(path)}">
+          ${escapeHtml(crumb)}
+        </button>
+      `;
+    })
+    .join('<span class="separator">/</span>');
+}
+
+function renderItems(items, query = "") {
   let html = "";
 
   for (const item of items) {
     if (item.type === "folder") {
-      const folderContent = renderItems(item.children, query, level + 1);
       const folderMatches = matchesQuery(item, query);
+      const hasMatchingChildren = query && renderItems(item.children, query);
 
-      if (query && !folderMatches && !folderContent) continue;
+      if (query && !folderMatches && !hasMatchingChildren) continue;
 
       const summary = summarizeTree(item.children);
 
       html += `
-        <section class="folder" style="--level: ${level}">
-          <details open>
-            <summary>
-              <span class="item-icon" aria-hidden="true">DIR</span>
-              <span class="item-title">${escapeHtml(item.name)}</span>
-              <span class="folder-meta">
-                ${summary.files} archivo${summary.files === 1 ? "" : "s"}
-              </span>
-            </summary>
-            <div class="folder-content">
-              ${folderContent || `<div class="empty nested">Carpeta vacia</div>`}
-            </div>
-          </details>
-        </section>
+        <button class="folder-row" type="button" data-action="open-folder" data-name="${escapeHtml(item.name)}">
+          <span class="item-icon" aria-hidden="true">DIR</span>
+          <span class="item-title">${escapeHtml(item.name)}</span>
+          <span class="folder-meta">
+            ${summary.files} archivo${summary.files === 1 ? "" : "s"}
+          </span>
+        </button>
       `;
     }
 
@@ -175,7 +229,7 @@ function renderItems(items, query = "", level = 0) {
       const extension = getExtension(item.name);
 
       html += `
-        <article class="file-card" style="--level: ${level}">
+        <article class="file-card">
           <div class="file-info">
             <div class="file-name">
               <span class="item-icon" aria-hidden="true">${getIcon(extension)}</span>
@@ -288,7 +342,32 @@ function showStatus(message) {
 }
 
 searchInput.addEventListener("input", () => {
-  renderTree(treeData, searchInput.value);
+  renderCurrentFolder();
+});
+
+fileList.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action]");
+  if (!target) return;
+
+  const action = target.dataset.action;
+
+  if (action === "open-folder") {
+    currentPath.push(target.dataset.name);
+    searchInput.value = "";
+    renderCurrentFolder();
+  }
+
+  if (action === "back") {
+    currentPath.pop();
+    searchInput.value = "";
+    renderCurrentFolder();
+  }
+
+  if (action === "breadcrumb") {
+    currentPath = target.dataset.path ? target.dataset.path.split("/") : [];
+    searchInput.value = "";
+    renderCurrentFolder();
+  }
 });
 
 loadFiles();

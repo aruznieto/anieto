@@ -55,6 +55,78 @@ p {
   gap: 12px;
 }
 
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.breadcrumbs button {
+  border: 0;
+  padding: 0;
+  color: #2563eb;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.breadcrumbs button:hover {
+  text-decoration: underline;
+}
+
+.separator {
+  color: #94a3b8;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.back-button {
+  flex: 0 0 auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #334155;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
 .summary,
 .search-status,
 .status,
@@ -81,22 +153,7 @@ p {
   color: #64748b;
 }
 
-.empty.nested {
-  margin-left: calc((var(--level, 0) + 1) * 18px);
-  padding: 12px 14px;
-}
-
-.folder,
-.file-card {
-  margin-left: calc(var(--level, 0) * 18px);
-}
-
-.folder {
-  display: grid;
-  gap: 10px;
-}
-
-.folder summary {
+.folder-row {
   min-height: 48px;
   cursor: pointer;
   background: #e8edf3;
@@ -109,13 +166,12 @@ p {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
 }
 
-.folder summary::-webkit-details-marker {
-  display: none;
-}
-
-.folder summary:hover {
+.folder-row:hover {
   background: #dde5ee;
 }
 
@@ -144,12 +200,6 @@ p {
   font-size: 0.86rem;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.folder-content {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
 }
 
 .file-card {
@@ -218,12 +268,16 @@ p {
     padding: 24px 0;
   }
 
-  .folder,
-  .file-card {
-    margin-left: calc(var(--level, 0) * 10px);
+  .folder-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .folder summary,
+  .back-button {
+    width: 100%;
+  }
+
+  .folder-row,
   .file-card {
     align-items: flex-start;
   }
