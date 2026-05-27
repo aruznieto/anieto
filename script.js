@@ -1,67 +1,142 @@
 const GITHUB_USER = "aruznieto";
 const GITHUB_REPO = "anieto";
-const FOLDER = "publicaciones";
-
-const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FOLDER}`;
+const ROOT_FOLDER = "publicaciones";
 
 const fileList = document.getElementById("fileList");
 const searchInput = document.getElementById("searchInput");
 
-let files = [];
+let treeData = null;
+
+async function fetchFolder(path) {
+  const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${path}`;
+
+  const response = await fetch(apiUrl);
+
+  if (!response.ok) {
+    throw new Error(`No se pudo cargar la carpeta: ${path}`);
+  }
+
+  const items = await response.json();
+
+  const folders = items
+    .filter(item => item.type === "dir")
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const files = items
+    .filter(item => item.type === "file")
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const children = [];
+
+  for (const folder of folders) {
+    const folderChildren = await fetchFolder(folder.path);
+
+    children.push({
+      type: "folder",
+      name: folder.name,
+      path: folder.path,
+      children: folderChildren
+    });
+  }
+
+  for (const file of files) {
+    children.push({
+      type: "file",
+      name: file.name,
+      path: file.path,
+      size: file.size,
+      downloadUrl: file.download_url
+    });
+  }
+
+  return children;
+}
 
 async function loadFiles() {
   try {
-    const response = await fetch(apiUrl);
+    fileList.innerHTML = `<p>Cargando archivos...</p>`;
 
-    if (!response.ok) {
-      throw new Error("No se pudieron cargar los archivos");
-    }
+    treeData = await fetchFolder(ROOT_FOLDER);
 
-    const data = await response.json();
-
-    files = data
-      .filter(item => item.type === "file")
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    renderFiles(files);
+    renderTree(treeData);
   } catch (error) {
     fileList.innerHTML = `
       <div class="empty">
-        No se pudieron cargar los archivos. Comprueba que el repositorio sea público 
-        y que exista la carpeta <strong>${FOLDER}</strong>.
+        No se pudieron cargar los archivos. Comprueba que el repositorio sea público
+        y que exista la carpeta <strong>${ROOT_FOLDER}</strong>.
       </div>
     `;
   }
 }
 
-function renderFiles(fileArray) {
-  if (fileArray.length === 0) {
-    fileList.innerHTML = `
-      <div class="empty">
-        No hay archivos disponibles.
-      </div>
-    `;
-    return;
+function renderTree(data, query = "") {
+  const html = renderItems(data, query);
+
+  fileList.innerHTML = html || `
+    <div class="empty">
+      No se encontraron archivos.
+    </div>
+  `;
+}
+
+function renderItems(items, query = "", level = 0) {
+  let html = "";
+
+  for (const item of items) {
+    if (item.type === "folder") {
+      const folderContent = renderItems(item.children, query, level + 1);
+
+      const folderMatches = item.name.toLowerCase().includes(query.toLowerCase());
+
+      if (query && !folderMatches && !folderContent) {
+        continue;
+      }
+
+      html += `
+        <section class="folder" style="margin-left: ${level * 18}px">
+          <details open>
+            <summary>
+              📁 ${escapeHtml(item.name)}
+            </summary>
+            <div class="folder-content">
+              ${folderContent}
+            </div>
+          </details>
+        </section>
+      `;
+    }
+
+    if (item.type === "file") {
+      const fileMatches = item.name.toLowerCase().includes(query.toLowerCase());
+
+      if (query && !fileMatches) {
+        continue;
+      }
+
+      const extension = getExtension(item.name);
+
+      html += `
+        <article class="file-card" style="margin-left: ${level * 18}px">
+          <div class="file-info">
+            <div class="file-name">
+              ${getIcon(extension)} ${escapeHtml(item.name)}
+            </div>
+            <div class="file-meta">
+              ${extension.toUpperCase()} · ${formatBytes(item.size)}
+            </div>
+          </div>
+
+          <div class="file-actions">
+            <a href="${item.downloadUrl}" target="_blank" rel="noopener">
+              Descargar
+            </a>
+          </div>
+        </article>
+      `;
+    }
   }
 
-  fileList.innerHTML = fileArray.map(file => {
-    const size = formatBytes(file.size);
-    const extension = getExtension(file.name);
-
-    return `
-      <article class="file-card">
-        <div class="file-info">
-          <div class="file-name">${getIcon(extension)} ${file.name}</div>
-          <div class="file-meta">${extension.toUpperCase()} · ${size}</div>
-        </div>
-        <div class="file-actions">
-          <a href="${file.download_url}" target="_blank" rel="noopener">
-            Descargar
-          </a>
-        </div>
-      </article>
-    `;
-  }).join("");
+  return html;
 }
 
 function formatBytes(bytes) {
@@ -74,7 +149,8 @@ function formatBytes(bytes) {
 }
 
 function getExtension(filename) {
-  return filename.split(".").pop().toLowerCase();
+  const parts = filename.split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "archivo";
 }
 
 function getIcon(extension) {
@@ -84,26 +160,36 @@ function getIcon(extension) {
     docx: "📝",
     xls: "📊",
     xlsx: "📊",
+    csv: "📊",
     zip: "🗜️",
     rar: "🗜️",
+    "7z": "🗜️",
     png: "🖼️",
     jpg: "🖼️",
     jpeg: "🖼️",
     webp: "🖼️",
-    txt: "📃"
+    gif: "🖼️",
+    txt: "📃",
+    md: "📃",
+    ppt: "📽️",
+    pptx: "📽️"
   };
 
   return icons[extension] || "📁";
 }
 
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 searchInput.addEventListener("input", () => {
-  const query = searchInput.value.toLowerCase();
+  const query = searchInput.value.trim();
 
-  const filteredFiles = files.filter(file =>
-    file.name.toLowerCase().includes(query)
-  );
+  if (!treeData) return;
 
-  renderFiles(filteredFiles);
+  renderTree(treeData, query);
 });
 
 loadFiles();
