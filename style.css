@@ -172,19 +172,15 @@ body {
 }
 
 .document-table th:first-child {
-  width: 48%;
+  width: 62%;
 }
 
 .document-table th:nth-child(2) {
-  width: 14%;
+  width: 18%;
 }
 
 .document-table th:nth-child(3) {
-  width: 25%;
-}
-
-.document-table th:nth-child(4) {
-  width: 13%;
+  width: 20%;
 }
 
 .document-table td {
@@ -274,8 +270,7 @@ body {
   background: var(--amber-soft);
 }
 
-.muted-cell,
-.path-cell {
+.muted-cell {
   color: var(--muted);
   font-weight: 650;
   overflow-wrap: anywhere;
@@ -388,12 +383,6 @@ body {
 
   .document-table td:nth-child(2)::before {
     content: "Tamaño: ";
-    color: var(--muted);
-    font-weight: 850;
-  }
-
-  .document-table td:nth-child(3)::before {
-    content: "Ubicación: ";
     color: var(--muted);
     font-weight: 850;
   }

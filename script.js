@@ -231,12 +231,11 @@ function renderDocumentTable(rows, emptyText, status = "") {
           <tr>
             <th scope="col">Nombre</th>
             <th scope="col">Tamaño</th>
-            <th scope="col">Ubicación</th>
             <th scope="col" class="actions-heading">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || `<tr><td colspan="4"><div class="empty">${escapeHtml(emptyText)}</div></td></tr>`}
+          ${rows || `<tr><td colspan="3"><div class="empty">${escapeHtml(emptyText)}</div></td></tr>`}
         </tbody>
       </table>
     </div>
@@ -264,7 +263,6 @@ function renderItems(items) {
             </button>
           </td>
           <td class="muted-cell">-</td>
-          <td class="muted-cell">Carpeta</td>
           <td class="row-actions">
             <button class="icon-action" type="button" data-action="open-folder" data-name="${escapeAttribute(item.name)}" aria-label="Abrir ${escapeAttribute(item.name)}">
               <i class="bi bi-arrow-right"></i>
@@ -284,7 +282,9 @@ function renderItems(items) {
 
 function renderFile(item, showPath = false) {
   const extension = getExtension(item.name);
-  const location = showPath ? getParentPath(item.path) : getCurrentPathLabel();
+  const detail = showPath
+    ? `${extension.toUpperCase()} · ${getParentPath(item.path)}`
+    : extension.toUpperCase();
 
   return `
     <tr class="document-row file-row" data-row-action="open-file" data-url="${escapeAttribute(item.url)}">
@@ -295,12 +295,11 @@ function renderFile(item, showPath = false) {
           </span>
           <span>
             <span class="entry-name">${escapeHtml(item.name)}</span>
-            <span class="entry-detail">${escapeHtml(extension.toUpperCase())}</span>
+            <span class="entry-detail">${escapeHtml(detail)}</span>
           </span>
         </div>
       </td>
       <td>${formatBytes(item.size)}</td>
-      <td class="path-cell">${escapeHtml(location)}</td>
       <td class="row-actions">
         <a class="icon-action" href="${item.url}" target="_blank" rel="noopener" aria-label="Abrir ${escapeAttribute(item.name)}">
           <i class="bi bi-box-arrow-up-right"></i>
