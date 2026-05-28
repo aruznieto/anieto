@@ -1,13 +1,15 @@
 const GITHUB_USER = "aruznieto";
 const GITHUB_REPO = "anieto";
 const BRANCH = "main";
-const ROOT_FOLDER = "publicaciones";
+const ROOT_FOLDER_CANDIDATES = ["Publicaciones", "publicaciones"];
 
 const fileList = document.getElementById("fileList");
+const pathBar = document.getElementById("pathBar");
 const searchInput = document.getElementById("searchInput");
 
 let treeData = [];
 let currentPath = [];
+let rootFolder = ROOT_FOLDER_CANDIDATES[0];
 
 async function loadFiles() {
   showStatus("Cargando archivos...");
@@ -25,13 +27,14 @@ async function loadFiles() {
     }
 
     const data = await response.json();
-    const rootItem = data.tree.find((item) => item.path === ROOT_FOLDER);
+    rootFolder = getRootFolder(data.tree);
+    const rootItem = data.tree.find((item) => item.path === rootFolder);
     const publicationItems = data.tree.filter((item) =>
-      item.path.startsWith(`${ROOT_FOLDER}/`)
+      item.path.startsWith(`${rootFolder}/`)
     );
 
     if (!rootItem && publicationItems.length === 0) {
-      throw new Error(`No existe la carpeta ${ROOT_FOLDER}`);
+      throw new Error(`No existe la carpeta ${rootFolder}`);
     }
 
     treeData = buildTree(publicationItems);
@@ -44,10 +47,20 @@ async function loadFiles() {
         No se pudieron cargar las publicaciones. Comprueba que el repositorio
         <strong>${escapeHtml(`${GITHUB_USER}/${GITHUB_REPO}`)}</strong> sea publico,
         que la rama sea <strong>${escapeHtml(BRANCH)}</strong> y que exista la carpeta
-        <strong>${escapeHtml(ROOT_FOLDER)}</strong>.
+        <strong>${escapeHtml(ROOT_FOLDER_CANDIDATES.join(" o "))}</strong>.
       </div>
     `;
   }
+}
+
+function getRootFolder(items) {
+  return (
+    ROOT_FOLDER_CANDIDATES.find((candidate) =>
+      items.some(
+        (item) => item.path === candidate || item.path.startsWith(`${candidate}/`)
+      )
+    ) || ROOT_FOLDER_CANDIDATES[0]
+  );
 }
 
 function buildTree(items) {
@@ -55,13 +68,13 @@ function buildTree(items) {
   const folders = new Map();
 
   for (const item of items) {
-    const relativePath = item.path.slice(ROOT_FOLDER.length + 1);
+    const relativePath = item.path.slice(rootFolder.length + 1);
     const parts = relativePath.split("/").filter(Boolean);
 
     if (parts.length === 0) continue;
 
     let currentLevel = root;
-    let currentPath = ROOT_FOLDER;
+    let currentPath = rootFolder;
 
     for (let index = 0; index < parts.length; index += 1) {
       const name = parts[index];
@@ -123,7 +136,14 @@ function sortTree(items) {
 }
 
 function renderCurrentFolder() {
-  renderFolder(getCurrentItems(), searchInput.value);
+  const query = searchInput.value;
+
+  if (normalize(query)) {
+    renderSearchResults(query);
+    return;
+  }
+
+  renderFolder(getCurrentItems());
 }
 
 function getCurrentItems() {
@@ -145,115 +165,159 @@ function getCurrentItems() {
   return items;
 }
 
-function renderFolder(data, query = "") {
-  const normalizedQuery = normalize(query);
-  const html = renderItems(data, normalizedQuery);
-  const summary = summarizeTree(data);
-  const folderName = currentPath.length
-    ? currentPath[currentPath.length - 1]
-    : ROOT_FOLDER;
-  const searchStatus = normalizedQuery
-    ? `<div class="search-status">Buscando: <strong>${escapeHtml(query)}</strong></div>`
-    : "";
-  const backButton = currentPath.length
-    ? `<button class="back-button" type="button" data-action="back">Volver</button>`
-    : "";
+function renderFolder(data) {
+  const html = renderItems(data);
+  renderPathBar();
 
-  fileList.innerHTML = `
-    <nav class="breadcrumbs" aria-label="Ruta actual">
-      ${renderBreadcrumbs()}
-    </nav>
-    <div class="folder-header">
-      <div>
-        <span class="eyebrow">Carpeta actual</span>
-        <h2>${escapeHtml(folderName)}</h2>
-      </div>
-      ${backButton}
-    </div>
-    <div class="summary">
-      ${summary.files} archivo${summary.files === 1 ? "" : "s"} en
-      ${summary.folders} carpeta${summary.folders === 1 ? "" : "s"}
-    </div>
-    ${searchStatus}
-    ${html || `<div class="empty">No se encontraron publicaciones.</div>`}
-  `;
+  fileList.innerHTML = renderDocumentTable(
+    html,
+    "No hay publicaciones en esta carpeta."
+  );
+}
+
+function renderSearchResults(query) {
+  const normalizedQuery = normalize(query);
+  const files = getAllFiles(treeData).filter((item) =>
+    matchesQuery(item, normalizedQuery)
+  );
+  const html = files.map((item) => renderFile(item, true)).join("");
+  renderPathBar();
+
+  fileList.innerHTML = renderDocumentTable(
+    html,
+    "No se encontraron publicaciones.",
+    `Buscando en publicaciones: <strong>${escapeHtml(query)}</strong>`
+  );
+}
+
+function renderPathBar() {
+  pathBar.innerHTML = renderBreadcrumbs();
 }
 
 function renderBreadcrumbs() {
-  const crumbs = [ROOT_FOLDER, ...currentPath];
+  const crumbs = [rootFolder, ...currentPath];
 
   return crumbs
     .map((crumb, index) => {
       const isLast = index === crumbs.length - 1;
       const path = index === 0 ? "" : currentPath.slice(0, index).join("/");
+      const label = index === 0 ? "Raíz" : crumb;
 
       if (isLast) {
-        return `<span aria-current="page">${escapeHtml(crumb)}</span>`;
+        return `
+          <span class="breadcrumb-current" aria-current="page">
+            ${index === 0 ? '<i class="bi bi-house-door" aria-hidden="true"></i>' : ""}
+            ${escapeHtml(label)}
+          </span>
+        `;
       }
 
       return `
-        <button type="button" data-action="breadcrumb" data-path="${escapeHtml(path)}">
-          ${escapeHtml(crumb)}
+        <button class="breadcrumb-button" type="button" data-action="breadcrumb" data-path="${escapeHtml(path)}">
+          ${index === 0 ? '<i class="bi bi-house-door" aria-hidden="true"></i>' : ""}
+          ${escapeHtml(label)}
         </button>
       `;
     })
-    .join('<span class="separator">/</span>');
+    .join('<i class="bi bi-chevron-right separator" aria-hidden="true"></i>');
 }
 
-function renderItems(items, query = "") {
+function renderDocumentTable(rows, emptyText, status = "") {
+  return `
+    ${status ? `<div class="search-status">${status}</div>` : ""}
+    <div class="table-responsive">
+      <table class="document-table">
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Tamaño</th>
+            <th scope="col">Ubicación</th>
+            <th scope="col" class="actions-heading">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || `<tr><td colspan="4"><div class="empty">${escapeHtml(emptyText)}</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderItems(items) {
   let html = "";
 
   for (const item of items) {
     if (item.type === "folder") {
-      const folderMatches = matchesQuery(item, query);
-      const hasMatchingChildren = query && renderItems(item.children, query);
-
-      if (query && !folderMatches && !hasMatchingChildren) continue;
-
       const summary = summarizeTree(item.children);
 
       html += `
-        <button class="folder-row" type="button" data-action="open-folder" data-name="${escapeHtml(item.name)}">
-          <span class="item-icon" aria-hidden="true">DIR</span>
-          <span class="item-title">${escapeHtml(item.name)}</span>
-          <span class="folder-meta">
-            ${summary.files} archivo${summary.files === 1 ? "" : "s"}
-          </span>
-        </button>
+        <tr class="document-row folder-row" data-row-action="open-folder" data-name="${escapeAttribute(item.name)}">
+          <td>
+            <button class="entry-button" type="button" data-action="open-folder" data-name="${escapeAttribute(item.name)}">
+              <span class="icon-tile folder-tile" aria-hidden="true">
+                <i class="bi bi-folder"></i>
+              </span>
+              <span>
+                <span class="entry-name">${escapeHtml(item.name)}</span>
+                <span class="entry-detail">${summary.files} archivo${summary.files === 1 ? "" : "s"}</span>
+              </span>
+            </button>
+          </td>
+          <td class="muted-cell">-</td>
+          <td class="muted-cell">Carpeta</td>
+          <td class="row-actions">
+            <button class="icon-action" type="button" data-action="open-folder" data-name="${escapeAttribute(item.name)}" aria-label="Abrir ${escapeAttribute(item.name)}">
+              <i class="bi bi-arrow-right"></i>
+            </button>
+          </td>
+        </tr>
       `;
     }
 
     if (item.type === "file") {
-      if (query && !matchesQuery(item, query)) continue;
-
-      const extension = getExtension(item.name);
-
-      html += `
-        <article class="file-card">
-          <div class="file-info">
-            <div class="file-name">
-              <span class="item-icon" aria-hidden="true">${getIcon(extension)}</span>
-              <span>${escapeHtml(item.name)}</span>
-            </div>
-            <div class="file-meta">
-              ${escapeHtml(extension.toUpperCase())} · ${formatBytes(item.size)}
-            </div>
-          </div>
-
-          <div class="file-actions">
-            <a href="${item.url}" target="_blank" rel="noopener">
-              Abrir
-            </a>
-            <a href="${item.url}" download>
-              Descargar
-            </a>
-          </div>
-        </article>
-      `;
+      html += renderFile(item);
     }
   }
 
   return html;
+}
+
+function renderFile(item, showPath = false) {
+  const extension = getExtension(item.name);
+  const location = showPath ? getParentPath(item.path) : getCurrentPathLabel();
+
+  return `
+    <tr class="document-row file-row" data-row-action="open-file" data-url="${escapeAttribute(item.url)}">
+      <td>
+        <div class="entry-main">
+          <span class="icon-tile file-tile" aria-hidden="true">
+            <i class="bi ${getIcon(extension)}"></i>
+          </span>
+          <span>
+            <span class="entry-name">${escapeHtml(item.name)}</span>
+            <span class="entry-detail">${escapeHtml(extension.toUpperCase())}</span>
+          </span>
+        </div>
+      </td>
+      <td>${formatBytes(item.size)}</td>
+      <td class="path-cell">${escapeHtml(location)}</td>
+      <td class="row-actions">
+        <a class="icon-action" href="${item.url}" target="_blank" rel="noopener" aria-label="Abrir ${escapeAttribute(item.name)}">
+          <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+        <a class="icon-action primary-action" href="${item.url}" download aria-label="Descargar ${escapeAttribute(item.name)}">
+          <i class="bi bi-download"></i>
+        </a>
+      </td>
+    </tr>
+  `;
+}
+
+function getAllFiles(items) {
+  return items.flatMap((item) => {
+    if (item.type === "file") return [item];
+    return getAllFiles(item.children);
+  });
 }
 
 function summarizeTree(items) {
@@ -279,6 +343,16 @@ function matchesQuery(item, query) {
   if (!query) return true;
 
   return normalize(item.name).includes(query) || normalize(item.path).includes(query);
+}
+
+function getParentPath(path) {
+  const parts = path.split("/");
+  parts.pop();
+  return parts.join("/");
+}
+
+function getCurrentPathLabel() {
+  return [rootFolder, ...currentPath].join("/");
 }
 
 function normalize(value) {
@@ -308,27 +382,27 @@ function getExtension(filename) {
 
 function getIcon(extension) {
   const icons = {
-    pdf: "PDF",
-    doc: "DOC",
-    docx: "DOC",
-    xls: "XLS",
-    xlsx: "XLS",
-    csv: "CSV",
-    zip: "ZIP",
-    rar: "RAR",
-    "7z": "7Z",
-    png: "IMG",
-    jpg: "IMG",
-    jpeg: "IMG",
-    webp: "IMG",
-    gif: "IMG",
-    txt: "TXT",
-    md: "MD",
-    ppt: "PPT",
-    pptx: "PPT"
+    pdf: "bi-file-earmark-pdf",
+    doc: "bi-file-earmark-word",
+    docx: "bi-file-earmark-word",
+    xls: "bi-file-earmark-spreadsheet",
+    xlsx: "bi-file-earmark-spreadsheet",
+    csv: "bi-filetype-csv",
+    zip: "bi-file-earmark-zip",
+    rar: "bi-file-earmark-zip",
+    "7z": "bi-file-earmark-zip",
+    png: "bi-file-earmark-image",
+    jpg: "bi-file-earmark-image",
+    jpeg: "bi-file-earmark-image",
+    webp: "bi-file-earmark-image",
+    gif: "bi-file-earmark-image",
+    txt: "bi-file-earmark-text",
+    md: "bi-file-earmark-text",
+    ppt: "bi-file-earmark-slides",
+    pptx: "bi-file-earmark-slides"
   };
 
-  return icons[extension] || "FILE";
+  return icons[extension] || "bi-file-earmark";
 }
 
 function escapeHtml(text) {
@@ -337,7 +411,12 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function escapeAttribute(text) {
+  return escapeHtml(text).replace(/"/g, "&quot;");
+}
+
 function showStatus(message) {
+  pathBar.innerHTML = "";
   fileList.innerHTML = `<div class="status">${escapeHtml(message)}</div>`;
 }
 
@@ -347,8 +426,54 @@ searchInput.addEventListener("input", () => {
 
 fileList.addEventListener("click", (event) => {
   const target = event.target.closest("[data-action]");
+  const link = event.target.closest("a");
+
+  if (link) return;
+
+  if (!target) {
+    const row = event.target.closest("[data-row-action]");
+    if (!row) return;
+
+    handleRowAction(row);
+    return;
+  }
+
+  handleNavigationAction(target);
+});
+
+pathBar.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action]");
   if (!target) return;
 
+  handleNavigationAction(target);
+});
+
+fileList.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  if (event.target.closest("a, button, input")) return;
+
+  const row = event.target.closest("[data-row-action]");
+  if (!row) return;
+
+  event.preventDefault();
+  handleRowAction(row);
+});
+
+function handleRowAction(row) {
+  const action = row.dataset.rowAction;
+
+  if (action === "open-folder") {
+    currentPath.push(row.dataset.name);
+    searchInput.value = "";
+    renderCurrentFolder();
+  }
+
+  if (action === "open-file") {
+    window.open(row.dataset.url, "_blank", "noopener");
+  }
+}
+
+function handleNavigationAction(target) {
   const action = target.dataset.action;
 
   if (action === "open-folder") {
@@ -368,6 +493,6 @@ fileList.addEventListener("click", (event) => {
     searchInput.value = "";
     renderCurrentFolder();
   }
-});
+}
 
 loadFiles();
