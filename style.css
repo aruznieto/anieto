@@ -265,6 +265,46 @@ body {
   background: var(--green-soft);
 }
 
+.file-tile-pdf {
+  color: #d93025;
+  background: #fde8e7;
+}
+
+.file-tile-word {
+  color: #185abd;
+  background: #e8f0fe;
+}
+
+.file-tile-excel {
+  color: #107c41;
+  background: #e6f4ea;
+}
+
+.file-tile-powerpoint {
+  color: #c43e1c;
+  background: #fce8df;
+}
+
+.file-tile-image {
+  color: #7c3aed;
+  background: #f0e7ff;
+}
+
+.file-tile-archive {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.file-tile-text {
+  color: #475569;
+  background: #eef2f7;
+}
+
+.file-tile-generic {
+  color: #0f766e;
+  background: #e6fffb;
+}
+
 .folder-row:nth-child(even) .folder-tile {
   color: var(--amber);
   background: var(--amber-soft);

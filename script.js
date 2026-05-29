@@ -290,7 +290,7 @@ function renderFile(item, showPath = false) {
     <tr class="document-row file-row" data-row-action="open-file" data-url="${escapeAttribute(item.url)}">
       <td>
         <div class="entry-main">
-          <span class="icon-tile file-tile" aria-hidden="true">
+          <span class="icon-tile file-tile ${getFileTileClass(extension)}" aria-hidden="true">
             <i class="bi ${getIcon(extension)}"></i>
           </span>
           <span>
@@ -402,6 +402,31 @@ function getIcon(extension) {
   };
 
   return icons[extension] || "bi-file-earmark";
+}
+
+function getFileTileClass(extension) {
+  const classes = {
+    pdf: "file-tile-pdf",
+    doc: "file-tile-word",
+    docx: "file-tile-word",
+    xls: "file-tile-excel",
+    xlsx: "file-tile-excel",
+    csv: "file-tile-excel",
+    ppt: "file-tile-powerpoint",
+    pptx: "file-tile-powerpoint",
+    png: "file-tile-image",
+    jpg: "file-tile-image",
+    jpeg: "file-tile-image",
+    webp: "file-tile-image",
+    gif: "file-tile-image",
+    zip: "file-tile-archive",
+    rar: "file-tile-archive",
+    "7z": "file-tile-archive",
+    txt: "file-tile-text",
+    md: "file-tile-text"
+  };
+
+  return classes[extension] || "file-tile-generic";
 }
 
 function escapeHtml(text) {
